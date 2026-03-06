@@ -14,13 +14,24 @@ def registrar_categoria(nombre, descripcion=""):
 def registrar_producto(nombre, p_compra, p_venta, stock_inicial, id_cat, id_prov):
     conn = conectar()
     cursor = conn.cursor()
+    # Insertar el producto
     cursor.execute("""
         INSERT INTO productos (nombre, precio_compra, precio_venta, stock_actual, id_categoria, id_proveedor)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (nombre, p_compra, p_venta, stock_inicial, id_cat, id_prov))
+    
+    id_nuevo = cursor.lastrowid
+    
+    # Registrar el stock inicial como una ENTRADA en el historial de movimientos
+    if stock_inicial > 0:
+        cursor.execute("""
+            INSERT INTO movimientos (id_producto, cantidad, tipo, precio_aplicado)
+            VALUES (?, ?, 'ENTRADA', ?)
+        """, (id_nuevo, stock_inicial, p_compra))
+    
     conn.commit()
     conn.close()
-    print(f"Producto '{nombre}' registrado con éxito.")
+    print(f"Producto '{nombre}' registrado con historial de inversión.")
 
 def registrar_movimiento(id_prod, cantidad, tipo, precio_actual):
     """
@@ -29,13 +40,13 @@ def registrar_movimiento(id_prod, cantidad, tipo, precio_actual):
     conn = conectar()
     cursor = conn.cursor()
     
-    # 1. Registrar el movimiento en el historial
+    # Registrar el movimiento en el historial
     cursor.execute("""
         INSERT INTO movimientos (id_producto, cantidad, tipo, precio_aplicado)
         VALUES (?, ?, ?, ?)
     """, (id_prod, cantidad, tipo, precio_actual))
     
-    # 2. Actualizar el stock en la tabla productos
+    # Actualizar el stock en la tabla productos
     if tipo == 'ENTRADA':
         cursor.execute("UPDATE productos SET stock_actual = stock_actual + ? WHERE id_producto = ?", (cantidad, id_prod))
     else:
@@ -57,41 +68,39 @@ def obtener_resumen_financiero():
     conn = conectar()
     cursor = conn.cursor()
 
-    # 1. Calcular Ingresos Totales (Ventas)
+    # Ingresos por ventas realizadas
     cursor.execute("SELECT SUM(cantidad * precio_aplicado) FROM movimientos WHERE tipo = 'SALIDA'")
     ingresos = cursor.fetchone()[0] or 0.0
 
-    # 2. Calcular Costos de Mercancía Vendida (Lo que a ti te costó lo que ya vendiste)
-    # Nota: Usamos una subconsulta para cruzar la venta con el precio de compra original
+    # Total invertido en compras (Entradas de stock)
+    # Aquí contamos todo lo que has pagado por mercadería hasta hoy
     cursor.execute("""
         SELECT SUM(m.cantidad * p.precio_compra) 
         FROM movimientos m 
         JOIN productos p ON m.id_producto = p.id_producto 
-        WHERE m.tipo = 'SALIDA'
+        WHERE m.tipo = 'ENTRADA'
     """)
-    costo_ventas = cursor.fetchone()[0] or 0.0
+    total_compras = cursor.fetchone()[0] or 0.0
 
-    # 3. Calcular Gastos Extra
+    # Gastos operativos (Luz, internet, pasajes)
     cursor.execute("SELECT SUM(monto) FROM gastos_extra")
-    gastos_totales = cursor.fetchone()[0] or 0.0
+    gastos_operativos = cursor.fetchone()[0] or 0.0
 
-    ganancia_bruta = ingresos - costo_ventas
-    ganancia_neta = ganancia_bruta - gastos_totales
+    # Ganancia Real = Lo que entró - (Todo lo que salió por productos + Gastos)
+    ganancia_neta = ingresos - (total_compras + gastos_operativos)
 
     conn.close()
 
     return {
         "ingresos": ingresos,
-        "costo_ventas": costo_ventas,
-        "ganancia_bruta": ganancia_bruta,
-        "gastos_extra": gastos_totales,
+        "total_compras": total_compras,
+        "gastos_extra": gastos_operativos,
         "ganancia_neta": ganancia_neta
     }
 
 def obtener_productos():
     conn = conectar()
     cursor = conn.cursor()
-    # Traemos el ID, Nombre, Categoría, Precios y Stock
     cursor.execute("""
         SELECT p.id_producto, p.nombre, c.nombre, p.precio_compra, p.precio_venta, p.stock_actual 
         FROM productos p
@@ -123,7 +132,6 @@ def eliminar_categoria(id_cat):
     conn = conectar()
     cursor = conn.cursor()
     # Nota: Esto fallará si hay productos usando esta categoría.
-    # Es una medida de seguridad de SQL.
     cursor.execute("DELETE FROM categorias WHERE id_categoria = ?", (id_cat,))
     conn.commit()
     conn.close()

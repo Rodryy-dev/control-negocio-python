@@ -36,7 +36,7 @@ class AplicacionNegocio:
         tk.Button(v, text="Guardar Gasto", command=guardar_gasto, bg="#FF5722", fg="white").pack(pady=20)
     def __init__(self, root):
         self.root = root
-        self.root.title("Control de Negocio Pro")
+        self.root.title("Control de Negocio")
         self.root.geometry("950x600")
 
         tk.Label(root, text="Panel de Inventario", font=("Arial", 18, "bold")).pack(pady=10)
@@ -119,16 +119,16 @@ class AplicacionNegocio:
 
         def borrar_cat():
             try:
-                # 1. Obtener la categoría seleccionada de la lista
+                # Obtener la categoría seleccionada de la lista
                 seleccion = lista.get(lista.curselection())
                 id_cat = int(seleccion.split(" - ")[0])
                 nombre_cat = seleccion.split(" - ")[1]
 
-                # 2. Buscar si hay productos ligados a esta categoría
+                # Buscar si hay productos ligados a esta categoría
               
                 productos_ligados = obtener_productos_por_categoria(id_cat)
 
-                # 3. Construir el mensaje de advertencia
+                # Construir el mensaje de advertencia
                 if productos_ligados:
                     lista_prods = "\n- ".join(productos_ligados)
                     mensaje = (f"¡Atención! La categoría '{nombre_cat}' tiene estos productos:\n\n"
@@ -200,9 +200,11 @@ class AplicacionNegocio:
     def mostrar_reporte(self):
         res = obtener_resumen_financiero()
         info = (f"Ventas Totales: S/ {res['ingresos']:.2f}\n"
-                f"Gastos Extra: S/ {res['gastos_extra']:.2f}\n"
-                f"GANANCIA NETA: S/ {res['ganancia_neta']:.2f}")
-        messagebox.showinfo("Balance", info)
+                f"Inversión en Mercadería: S/ {res['total_compras']:.2f}\n"
+                f"Gastos Operativos: S/ {res['gastos_extra']:.2f}\n"
+                f"--------------------------\n"
+                f"SALDO NETO CAJA: S/ {res['ganancia_neta']:.2f}")
+        messagebox.showinfo("Balance Financiero", info)
 
 if __name__ == "__main__":
     root = tk.Tk()
