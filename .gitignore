@@ -1,0 +1,10 @@
+# No subir la base de datos (contiene datos del negocio)
+negocio.db
+*.db
+
+# No subir entornos virtuales
+venv/
+__pycache__/
+
+# Archivos de sistema
+.DS_Store
